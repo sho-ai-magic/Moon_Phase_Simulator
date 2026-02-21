@@ -36,6 +36,12 @@
             background: #4B5563;
             border-radius: 3px;
         }
+        
+        /* 日付入力のアイコンを白くする(Chrome向け) */
+        ::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -44,24 +50,40 @@
     <div id="canvas-container"></div>
 
     <!-- UI コントロールパネル -->
-    <!-- w-fullから、スマホ・PCそれぞれで適切な幅になるよう調整。左上にコンパクトに配置 -->
-    <div class="absolute top-0 left-0 p-3 sm:p-5 z-10 pointer-events-none w-full sm:w-[420px]">
+    <div class="absolute top-0 left-0 p-3 sm:p-5 z-10 pointer-events-none w-full sm:w-[420px] max-h-screen overflow-y-auto overflow-x-hidden">
         <div class="bg-gray-900/85 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-gray-700 shadow-[0_10px_40px_rgba(0,0,0,0.8)] pointer-events-auto">
             <h1 class="text-lg sm:text-xl font-bold mb-4 text-center tracking-wider flex items-center justify-center gap-2">
                 <span>🌍</span> 地球・月・太陽 シミュレーター
             </h1>
             
             <div class="flex flex-col gap-3">
-                <!-- 🌟 観測イベント (日食・月食のプリセット) -->
-                <div class="bg-indigo-900/40 p-3 rounded-xl border border-indigo-500/50">
-                    <label class="font-semibold text-green-300 text-sm block mb-2">🌟 観測イベントを再現</label>
-                    <select id="preset-select" class="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:border-indigo-500 cursor-pointer transition-colors">
-                        <option value="none">自由に操作する</option>
-                        <option value="total-solar">🌑 皆既日食 (新月・傾き0°)</option>
-                        <option value="partial-solar">🌒 部分日食 (新月・わずかに傾く)</option>
-                        <option value="total-lunar">🔴 皆既月食 (満月・傾き0°)</option>
-                        <option value="partial-lunar">🌖 部分月食 (満月・わずかに傾く)</option>
-                    </select>
+                <!-- 🌟 日付・イベントから設定 -->
+                <div class="bg-indigo-900/40 p-3 rounded-xl border border-indigo-500/50 flex flex-col gap-3">
+                    
+                    <!-- 日付指定 -->
+                    <div>
+                        <label class="font-semibold text-green-300 text-sm block mb-1">📅 実際の日付から位置を計算</label>
+                        <div class="flex gap-2">
+                            <input type="date" id="date-input" class="flex-1 bg-gray-900 text-white border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:border-indigo-500">
+                            <button id="date-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm transition-colors whitespace-nowrap shadow-lg">適用</button>
+                        </div>
+                    </div>
+
+                    <div class="w-full h-px bg-indigo-500/30"></div>
+
+                    <!-- イベントプリセット -->
+                    <div>
+                        <label class="font-semibold text-green-300 text-sm block mb-1">🌟 特殊な観測イベントを再現</label>
+                        <select id="preset-select" class="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:border-indigo-500 cursor-pointer transition-colors">
+                            <option value="none">自由に操作する</option>
+                            <option value="total-solar">🌑 皆既日食 (新月・傾き0°)</option>
+                            <option value="partial-solar">🌒 部分日食 (新月・わずかに傾く)</option>
+                            <option value="total-lunar">🔴 皆既月食 (満月・傾き0°)</option>
+                            <option value="partial-lunar">🌖 部分月食 (満月・わずかに傾く)</option>
+                        </select>
+                    </div>
+
+                    <p class="text-[10px] text-gray-400 leading-tight">※日付計算は簡易的な軌道計算に基づく概算です。厳密な位置や日食・月食の発生を保証するものではありません。</p>
                 </div>
 
                 <!-- 月の操作 -->
@@ -104,8 +126,8 @@
     </div>
 
     <!-- 地球からの視点（月の満ち欠けPiP表示） -->
-    <div class="absolute bottom-6 right-6 z-10 flex flex-col items-center">
-        <div class="relative w-40 h-40 sm:w-56 sm:h-56 bg-black border-4 border-gray-700 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden">
+    <div class="absolute bottom-6 right-6 z-10 flex flex-col items-center pointer-events-none">
+        <div class="relative w-40 h-40 sm:w-56 sm:h-56 bg-black border-4 border-gray-700 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto">
             <!-- 満ち欠けの名前表示 -->
             <div id="phase-name" class="absolute top-4 left-0 w-full text-center z-20 text-sm sm:text-base font-bold text-yellow-300 drop-shadow-lg tracking-widest">
                 上弦の月
@@ -133,11 +155,20 @@
             const sunSlider = document.getElementById('sun-slider');
             const inclinationSlider = document.getElementById('inclination-slider');
             const presetSelect = document.getElementById('preset-select');
+            const dateInput = document.getElementById('date-input');
+            const dateBtn = document.getElementById('date-btn');
             const moonDisplay = document.getElementById('moon-angle-display');
             const sunDisplay = document.getElementById('sun-angle-display');
             const inclinationDisplay = document.getElementById('inclination-display');
             const autoPlayCheck = document.getElementById('auto-play');
             const phaseNameDisplay = document.getElementById('phase-name');
+
+            // --- 日付の初期化（今日の日付をセット） ---
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${year}-${month}-${day}`;
 
             // --- Three.js 基本設定 ---
             const scene = new THREE.Scene();
@@ -388,6 +419,48 @@
 
             // --- イベントリスナー ---
             
+            // 📅 日付から計算してシミュレート
+            dateBtn.addEventListener('click', () => {
+                const selectedDate = new Date(dateInput.value);
+                if (isNaN(selectedDate.getTime())) return;
+
+                // 1. 太陽の位置を概算 (1月1日を基準に1年で360度公転すると仮定)
+                const startOfYear = new Date(selectedDate.getFullYear(), 0, 1);
+                const oneDay = 1000 * 60 * 60 * 24;
+                const diffDaysOfYear = (selectedDate - startOfYear) / oneDay;
+                let calcSunAngle = (diffDaysOfYear / 365.2422) * 360;
+
+                // 2. 月の位置（満ち欠け）を概算 (基準となる新月からの経過日数で計算)
+                // 基準となる新月: 2000年1月6日 18:14 UTC
+                const refNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
+                const synodicMonth = 29.53058868; // 朔望月(満ち欠けの周期)
+                const daysSinceRef = (selectedDate - refNewMoon) / oneDay;
+                
+                // 周期から現在の位相(0.0〜1.0)を計算
+                let phaseFraction = (daysSinceRef / synodicMonth) % 1;
+                if (phaseFraction < 0) phaseFraction += 1; // 2000年以前の対応
+                
+                // 太陽を基準とした月の相対角度
+                const relativeMoonAngle = phaseFraction * 360;
+
+                // 3. スライダーに反映
+                calcSunAngle = calcSunAngle % 360;
+                let calcMoonAngle = (calcSunAngle + relativeMoonAngle) % 360;
+                
+                sunSlider.value = calcSunAngle;
+                moonSlider.value = calcMoonAngle;
+                inclinationSlider.value = 5.0; // 日付指定時は平均的な傾き(5度)にリセット
+                
+                sunAngleDeg = calcSunAngle;
+                moonAngleDeg = calcMoonAngle;
+                inclinationDeg = 5.0;
+
+                resetPreset();
+                autoPlayCheck.checked = false;
+                
+                updatePositions();
+            });
+            
             // プリセット（現象）の選択処理
             presetSelect.addEventListener('change', (e) => {
                 const val = e.target.value;
@@ -471,6 +544,9 @@
             }
 
             animate();
+            
+            // 初期状態として今日の日付でシミュレートを実行
+            dateBtn.click();
         };
     </script>
 </body>
