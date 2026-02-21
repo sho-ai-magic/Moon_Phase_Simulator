@@ -44,20 +44,16 @@
         }
     </style>
 </head>
-<body class="antialiased">
+<body class="antialiased flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-black">
 
-    <!-- 俯瞰用メインキャンバス -->
-    <div id="canvas-container"></div>
-
-    <!-- UI コントロールパネル -->
-    <div class="absolute top-0 left-0 p-3 sm:p-5 z-10 pointer-events-none w-full sm:w-[420px] max-h-screen overflow-y-auto overflow-x-hidden">
-        <div class="bg-gray-900/85 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-gray-700 shadow-[0_10px_40px_rgba(0,0,0,0.8)] pointer-events-auto">
-            <h1 class="text-lg sm:text-xl font-bold mb-4 text-center tracking-wider flex items-center justify-center gap-2">
-                <span>🌍</span> 地球・月・太陽 シミュレーター
-            </h1>
-            
-            <div class="flex flex-col gap-3">
-                <!-- 🌟 日付・イベントから設定 -->
+    <!-- UI コントロールパネル (左側サイドバー) -->
+    <div class="w-full md:w-[360px] lg:w-[400px] h-[45vh] md:h-full bg-gray-900 border-b md:border-b-0 md:border-r border-gray-700 p-4 sm:p-5 overflow-y-auto flex-shrink-0 z-20 shadow-[5px_0_15px_rgba(0,0,0,0.5)]">
+        <h1 class="text-lg sm:text-xl font-bold mb-4 text-center tracking-wider flex items-center justify-center gap-2">
+            <span>🌍</span> 地球・月・太陽 シミュレーター
+        </h1>
+        
+        <div class="flex flex-col gap-3">
+            <!-- 🌟 日付・イベントから設定 -->
                 <div class="bg-indigo-900/40 p-3 rounded-xl border border-indigo-500/50 flex flex-col gap-3">
                     
                     <!-- 日付指定 -->
@@ -123,28 +119,33 @@
                 </div>
             </div>
         </div>
-    </div>
+    
+    <!-- 3D表示領域 (右側キャンバス) -->
+    <div id="canvas-wrapper" class="flex-1 relative w-full h-[55vh] md:h-full overflow-hidden">
+        <!-- 俯瞰用メインキャンバス -->
+        <div id="canvas-container" class="absolute inset-0"></div>
 
-    <!-- 地球からの視点（月の満ち欠けPiP表示） -->
-    <div class="absolute bottom-6 right-6 z-10 flex flex-col items-center pointer-events-none">
-        <div class="relative w-40 h-40 sm:w-56 sm:h-56 bg-black border-4 border-gray-700 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto">
-            <!-- 満ち欠けの名前表示 -->
-            <div id="phase-name" class="absolute top-4 left-0 w-full text-center z-20 text-sm sm:text-base font-bold text-yellow-300 drop-shadow-lg tracking-widest">
-                上弦の月
+        <!-- 地球からの視点（月の満ち欠けPiP表示） -->
+        <div class="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-10 flex flex-col items-center pointer-events-none">
+            <div class="relative w-36 h-36 sm:w-48 sm:h-48 md:w-56 md:h-56 bg-black border-4 border-gray-700 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto">
+                <!-- 満ち欠けの名前表示 -->
+                <div id="phase-name" class="absolute top-4 left-0 w-full text-center z-20 text-xs sm:text-sm md:text-base font-bold text-yellow-300 drop-shadow-lg tracking-widest leading-tight">
+                    上弦の月
+                </div>
+                
+                <!-- 地球視点のキャンバス -->
+                <canvas id="pip-canvas" class="absolute top-0 left-0 w-full h-full z-10"></canvas>
+                
+                <!-- 下部のラベル -->
+                <div class="absolute bottom-3 left-0 w-full text-center z-20 text-[10px] sm:text-xs md:text-sm text-gray-300 drop-shadow-md">
+                    👀 地球から見た月
+                </div>
             </div>
             
-            <!-- 地球視点のキャンバス -->
-            <canvas id="pip-canvas" class="absolute top-0 left-0 w-full h-full z-10"></canvas>
-            
-            <!-- 下部のラベル -->
-            <div class="absolute bottom-4 left-0 w-full text-center z-20 text-xs sm:text-sm text-gray-300 drop-shadow-md">
-                👀 地球から見た月
+            <!-- 操作ヒント -->
+            <div class="mt-3 text-[10px] sm:text-xs text-gray-400 bg-black/60 px-3 py-1 rounded-full backdrop-blur pointer-events-auto">
+                背景をドラッグして視点を回転できます
             </div>
-        </div>
-        
-        <!-- 操作ヒント -->
-        <div class="mt-4 text-xs text-gray-400 bg-black/50 px-3 py-1 rounded-full backdrop-blur">
-            背景をドラッグして視点を回転できます
         </div>
     </div>
 
@@ -176,27 +177,30 @@
             // 宇宙の背景（星）を作成
             const createStars = () => {
                 const starsGeometry = new THREE.BufferGeometry();
-                const starsMaterial = new THREE.PointsMaterial({color: 0xffffff, size: 0.1, transparent: true, opacity: 0.8});
-                const starsVertices = [];
-                for(let i=0; i<2000; i++) {
-                    const x = (Math.random() - 0.5) * 200;
-                    const y = (Math.random() - 0.5) * 200;
-                    const z = (Math.random() - 0.5) * 200;
-                    starsVertices.push(x, y, z);
-                }
-                starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
-                const starField = new THREE.Points(starsGeometry, starsMaterial);
-                scene.add(starField);
-            };
-            createStars();
+            const starsMaterial = new THREE.PointsMaterial({color: 0xffffff, size: 0.1, transparent: true, opacity: 0.8});
+            const starsVertices = [];
+            for(let i=0; i<2000; i++) {
+                const x = (Math.random() - 0.5) * 200;
+                const y = (Math.random() - 0.5) * 200;
+                const z = (Math.random() - 0.5) * 200;
+                starsVertices.push(x, y, z);
+            }
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            const starField = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(starField);
+        };
+        createStars();
 
-            // --- カメラ設定 ---
-            // 1. 俯瞰用メインカメラ (UIと被らないように右側に寄せ、少し引く)
-            const mainCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            mainCamera.position.set(15, 40, 60);
+        // キャンバスを囲むラッパー要素を取得
+        const wrapper = document.getElementById('canvas-wrapper');
 
-            // 2. 地球から月を見るカメラ (PiP用)
-            // 視野角を狭くして月をズームアップする
+        // --- カメラ設定 ---
+        // 1. 俯瞰用メインカメラ (画面分割したため中央に戻す)
+        const mainCamera = new THREE.PerspectiveCamera(45, wrapper.clientWidth / wrapper.clientHeight, 0.1, 1000);
+        mainCamera.position.set(0, 40, 60);
+
+        // 2. 地球から月を見るカメラ (PiP用)
+        // 視野角を狭くして月をズームアップする
             const earthCamera = new THREE.PerspectiveCamera(8, 1, 0.1, 100);
             earthCamera.position.set(0, 0, 0); // 地球の中心に配置
 
@@ -209,7 +213,7 @@
             // --- レンダラー設定 ---
             const container = document.getElementById('canvas-container');
             const mainRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            mainRenderer.setSize(window.innerWidth, window.innerHeight);
+            mainRenderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
             mainRenderer.setPixelRatio(window.devicePixelRatio);
             mainRenderer.shadowMap.enabled = true;
             mainRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -230,8 +234,8 @@
             controls.dampingFactor = 0.05;
             controls.minDistance = 10;
             controls.maxDistance = 100;
-            // 地球と太陽の間くらいを注視点にすることで、全体が右に寄りUI被りを防ぐ
-            controls.target.set(10, 0, 0);
+            // 画面分割したため注視点を中央に戻す
+            controls.target.set(0, 0, 0);
 
             // --- オブジェクトの作成 ---
             // 1. 地球
@@ -511,9 +515,9 @@
 
             // ウィンドウリサイズ対応
             window.addEventListener('resize', () => {
-                mainCamera.aspect = window.innerWidth / window.innerHeight;
+                mainCamera.aspect = wrapper.clientWidth / wrapper.clientHeight;
                 mainCamera.updateProjectionMatrix();
-                mainRenderer.setSize(window.innerWidth, window.innerHeight);
+                mainRenderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
 
                 // PiPカメラのリサイズ
                 const newPipSize = pipCanvas.parentElement.clientWidth;
